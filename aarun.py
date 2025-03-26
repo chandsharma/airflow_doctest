@@ -48,7 +48,7 @@ spec = {
   "apiVersion": "sparkoperator.k8s.io/v1beta2",
   "kind": "SparkApplication",
   "metadata": {
-    "name": "aadag-41",
+    "name": "ndag-41",
     "namespace": "default"
   },
   "spec": {
@@ -68,9 +68,9 @@ spec = {
     },
     "sparkConf": {
       "spark.eventLog.enabled": "true",
-      "spark.eventLog.dir": "wasb://spark-logs@airflowlogs9mr5hu.blob.core.windows.net/spark-logs",
+      "spark.eventLog.dir": "wasb://spark-logs@sparklstoragenf7s87.blob.core.windows.net/spark-logs",
       "spark.kubernetes.authenticate.driver.serviceAccountName": "spark",
-      "spark.hadoop.fs.azure.account.key.airflowlogs9mr5hu.blob.core.windows.net": "KiaCWQEzoRxlXcU8mqP+Z6n4PMLahp00FE+in8D+1N/vggjymJ97TdOrfnlxmMIkejh4O6G6Gn3m+AStvEo2cg=="
+      "spark.hadoop.fs.azure.account.key.sparklstoragenf7s87.blob.core.windows.net": "FbXKNHiPv9GqiqWL67JOe/Jf5QnHTZoRwH2UJ5n75MUnAvOM7XsW6Hia2GNkWDW5rJM5q4GGkoWy+AStmC8+bw=="
     },
     "driver": {
       "cores": 1,
@@ -94,7 +94,7 @@ spec = {
 }
 
 dag = DAG(
-    "aadag_41", #same name as application. and there should be no underscore in application name
+    "ndag_41", #same name as application. and there should be no underscore in application name
     default_args=default_args,
     description="Submit Spark job to Kubernetes via Airflow",
     # schedule=timedelta(days=1),
@@ -103,7 +103,7 @@ dag = DAG(
 )
 
 submit_spark_job = SparkKubernetesOperator(
-    task_id="submit_spark_aadag_41", #NOT but in blog
+    task_id="submit_spark_ndag_41", #NOT but in blog
     executor_config={
         "env": {
             "KUBERNETES_OPERATOR_LOG_LEVEL": "DEBUG",
