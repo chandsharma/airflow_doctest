@@ -36,9 +36,26 @@ spark_app_spec = {
             "cores": 1,
             "memory": "512m",
             "serviceAccount": "spark",
+            "labels": {"version": "1.0"},  # <--- FIXED HERE
             "env": [
-                {"name": "AZURE_STORAGE_ACCOUNT_NAME", "value": "myazurestorage"},
-                {"name": "AZURE_STORAGE_ACCOUNT_KEY", "value": "<Your Storage Key>"}
+                {
+                    "name": "AZURE_STORAGE_ACCOUNT_NAME",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "azure-secret",
+                            "key": "AZURE_STORAGE_ACCOUNT_NAME"
+                        }
+                    }
+                },
+                {
+                    "name": "AZURE_STORAGE_ACCOUNT_KEY",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "azure-secret",
+                            "key": "AZURE_STORAGE_ACCOUNT_KEY"
+                        }
+                    }
+                }
             ]
         },
         "executor": {
