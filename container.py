@@ -71,12 +71,18 @@ spec = {
             "memory": "512m",
             "command": ["/bin/sh", "-c"],
             "args": [ command_str ],
-            "serviceAccount": "spark"
+            "serviceAccount": "spark",
+            "labels": {
+                "version": "3.5.2"
+            },
         },
         "executor": {
             "cores": 1,
             "instances": 2,
-            "memory": "512m"
+            "memory": "512m",
+            "labels": {
+                "version": "3.5.2"
+            }
         },
         "sparkConf": {
             "spark.eventLog.enabled": "false",
