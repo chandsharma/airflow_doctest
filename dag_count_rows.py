@@ -22,7 +22,7 @@ spec = {
         "mode": "cluster",
         "image": "vishallsinghh/spark-count-job:latest",  # Replace with your image
         "imagePullPolicy": "Always",
-        "mainPythonFile": "local:///app/spark_job_count_rows.py",  # Inside Docker image
+        "mainApplicationFile": "local:///app/spark_job_count_rows.py",  # Inside Docker image
         "sparkVersion": "3.1.2",
         "restartPolicy": {
             "type": "OnFailure",
