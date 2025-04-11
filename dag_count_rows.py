@@ -9,32 +9,39 @@ default_args = {
     "email_on_retry": False,
 }
 
-# SparkApplication Spec
+# Define SparkApplication spec
 spec = {
     "apiVersion": "sparkoperator.k8s.io/v1beta2",
     "kind": "SparkApplication",
     "metadata": {
-        "name": "dag-count-rows",
+        "name": "dag-count-rows",  # No underscores allowed here
         "namespace": "default"
     },
     "spec": {
         "type": "Python",
         "mode": "cluster",
-        "image": "vishallsinghh/spark-count-job:latest",  # Use your pushed image
+        "image": "vishallsinghh/spark-count-job:latest",  # Replace with your image
         "imagePullPolicy": "Always",
-        "mainApplicationFile": "local:///app/spark_job_count_rows.py",
+        "mainApplicationFile": "local:///app/spark_job_count_rows.py",  # Inside Docker image
         "sparkVersion": "3.1.2",
         "restartPolicy": {
-            "type": "OnFailure"
+            "type": "OnFailure",
+            "onFailureRetries": 3,
+            "onFailureRetryInterval": 10,
+            "onSubmissionFailureRetries": 3,
+            "onSubmissionFailureRetryInterval": 10
         },
         "sparkConf": {
-            "spark.hadoop.fs.azure.account.key.vishallsparklogs.blob.core.windows.net": "XZfQviaXeNqQVHjTD6Cwg1VbiUK8YhDWqOSTDskYv5oFd4YzfajqGUHZBE3/2My1mw9hPXfeceYn+AStsFBh7A==",
-            "spark.eventLog.enabled": "false"
+            "spark.eventLog.enabled": "false",
+            "spark.hadoop.fs.azure.account.key.vishallsparklogs.blob.core.windows.net": "XZfQviaXeNqQVHjTD6Cwg1VbiUK8YhDWqOSTDskYv5oFd4YzfajqGUHZBE3/2My1mw9hPXfeceYn+AStsFBh7A=="
         },
         "driver": {
             "cores": 1,
             "memory": "512m",
-            "serviceAccount": "spark"
+            "serviceAccount": "spark",
+            "labels": {
+                "app": "spark"
+            }
         },
         "executor": {
             "cores": 1,
@@ -44,18 +51,21 @@ spec = {
     }
 }
 
+# Define DAG
 dag = DAG(
-    "dag_count_rows",
+    "dag_count_rows",  # DAG ID (can include underscores)
     default_args=default_args,
-    description="Spark count rows from blob",
+    description="Submit Spark job to count rows from Azure Blob",
+    schedule_interval=None,
     catchup=False,
-    start_date=datetime(2024, 1, 1)
+    start_date=datetime(2024, 1, 1),
 )
 
+# Spark submit task
 submit_job = SparkKubernetesOperator(
     task_id="submit_count_job",
     namespace="default",
-    image="vishallsinghh/spark-count-job:latest",  # Redundant but allowed
+    image="vishallsinghh/spark-count-job:latest",  # Redundant but fine
     template_spec=spec,
     get_logs=True,
     delete_on_termination=False,
