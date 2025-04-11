@@ -1,71 +1,58 @@
 from airflow import DAG
-from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import SparkKubernetesOperator
-from datetime import datetime
+from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
+from datetime import datetime, timedelta
 
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
     "email_on_failure": False,
     "email_on_retry": False,
-}
-
-spec = {
-    "apiVersion": "sparkoperator.k8s.io/v1beta2",
-    "kind": "SparkApplication",
-    "metadata": {
-        "name": "dag-count-orc-rows",
-        "namespace": "default"
-    },
-    "spec": {
-        "type": "Python",  # Important
-        "mode": "cluster",
-        "image": "docker.io/channnuu/chandan_spark:3.5.2",  # Your existing working image
-        "imagePullPolicy": "IfNotPresent",
-        "mainApplicationFile": "local:///opt/spark/scripts/count_orc_rows.py",  # Assumes script is present inside the image
-        "sparkVersion": "3.1.2",
-        "restartPolicy": {
-            "type": "OnFailure",
-            "onSubmissionFailureRetries": 3,
-            "onSubmissionFailureRetryInterval": 10,
-            "onFailureRetries": 3,
-            "onFailureRetryInterval": 10
-        },
-        "sparkConf": {
-            "spark.eventLog.enabled": "false",
-            "spark.hadoop.fs.azure.account.key.vishalsparklogs.blob.core.windows.net": "XZfQviaXeNqQVHjTD6Cwg1VbiUK8YhDWqOSTDskYv5oFd4YzfajqGUHZBE3/2My1mw9hPXfeceYn+AStsFBh7A==",
-            "spark.kubernetes.authenticate.driver.serviceAccountName": "spark"
-        },
-        "driver": {
-            "cores": 1,
-            "memory": "512m",
-            "serviceAccount": "spark",
-            "labels": {
-                "app": "spark"
-            }
-        },
-        "executor": {
-            "cores": 1,
-            "instances": 2,
-            "memory": "512m"
-        }
-    }
+    "retries": 1,
+    "retry_delay": timedelta(minutes=5),
 }
 
 dag = DAG(
-    "dag_count_orc_rows",  # DAG name can use underscores
+    "dag_count_orc_rows_yaml",
     default_args=default_args,
-    description="Count rows in ORC file using Spark on AKS",
+    description="Run Spark job on AKS to count ORC rows via YAML",
     schedule_interval=None,
-    catchup=False,
     start_date=datetime(2024, 1, 1),
+    catchup=False,
 )
 
-submit_job = SparkKubernetesOperator(
-    task_id="submit_spark_orc_count",
+# Step 1: Create ConfigMap for inline PySpark script
+create_configmap = KubernetesPodOperator(
+    task_id="create_orc_script_configmap",
+    name="create-configmap-orc-script",
     namespace="default",
-    image="docker.io/channnuu/chandan_spark:3.5.2",
-    template_spec=spec,
+    image="bitnami/kubectl:latest",
+    cmds=[
+        "kubectl",
+        "apply",
+        "-f",
+        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-script.yaml"
+    ],
     get_logs=True,
-    delete_on_termination=False,
+    is_delete_operator_pod=True,
     dag=dag,
 )
+
+# Step 2: Submit SparkApplication YAML
+submit_spark_job = KubernetesPodOperator(
+    task_id="submit_spark_orc_count",
+    name="submit-spark-orc-job",
+    namespace="default",
+    image="bitnami/kubectl:latest",
+    cmds=[
+        "kubectl",
+        "apply",
+        "-f",
+        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-sparkapp.yaml"
+    ],
+    get_logs=True,
+    is_delete_operator_pod=True,
+    dag=dag,
+)
+
+# Ensure configmap is created before Spark job runs
+create_configmap >> submit_spark_job
