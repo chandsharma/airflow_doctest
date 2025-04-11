@@ -9,31 +9,31 @@ default_args = {
     "email_on_retry": False,
 }
 
-# Define SparkApplication spec
 spec = {
     "apiVersion": "sparkoperator.k8s.io/v1beta2",
     "kind": "SparkApplication",
     "metadata": {
-        "name": "dag-count-rows",  # No underscores allowed here
+        "name": "dag-count-orc-rows",
         "namespace": "default"
     },
     "spec": {
-        "type": "Python",
+        "type": "Python",  # Important
         "mode": "cluster",
-        "image": "vishallsinghh/spark-count-job:latest",  # Replace with your image
-        "imagePullPolicy": "Always",
-        "mainApplicationFile": "local:///app/spark_job_count_rows.py",  # Inside Docker image
+        "image": "docker.io/channnuu/chandan_spark:3.5.2",  # Your existing working image
+        "imagePullPolicy": "IfNotPresent",
+        "mainApplicationFile": "local:///opt/spark/scripts/count_orc_rows.py",  # Assumes script is present inside the image
         "sparkVersion": "3.1.2",
         "restartPolicy": {
             "type": "OnFailure",
-            "onFailureRetries": 3,
-            "onFailureRetryInterval": 10,
             "onSubmissionFailureRetries": 3,
-            "onSubmissionFailureRetryInterval": 10
+            "onSubmissionFailureRetryInterval": 10,
+            "onFailureRetries": 3,
+            "onFailureRetryInterval": 10
         },
         "sparkConf": {
             "spark.eventLog.enabled": "false",
-            "spark.hadoop.fs.azure.account.key.vishallsparklogs.blob.core.windows.net": "XZfQviaXeNqQVHjTD6Cwg1VbiUK8YhDWqOSTDskYv5oFd4YzfajqGUHZBE3/2My1mw9hPXfeceYn+AStsFBh7A=="
+            "spark.hadoop.fs.azure.account.key.vishalsparklogs.blob.core.windows.net": "XZfQviaXeNqQVHjTD6Cwg1VbiUK8YhDWqOSTDskYv5oFd4YzfajqGUHZBE3/2My1mw9hPXfeceYn+AStsFBh7A==",
+            "spark.kubernetes.authenticate.driver.serviceAccountName": "spark"
         },
         "driver": {
             "cores": 1,
@@ -51,21 +51,19 @@ spec = {
     }
 }
 
-# Define DAG
 dag = DAG(
-    "dag_count_rows",  # DAG ID (can include underscores)
+    "dag_count_orc_rows",  # DAG name can use underscores
     default_args=default_args,
-    description="Submit Spark job to count rows from Azure Blob",
+    description="Count rows in ORC file using Spark on AKS",
     schedule_interval=None,
     catchup=False,
     start_date=datetime(2024, 1, 1),
 )
 
-# Spark submit task
 submit_job = SparkKubernetesOperator(
-    task_id="submit_count_job",
+    task_id="submit_spark_orc_count",
     namespace="default",
-    image="vishallsinghh/spark-count-job:latest",  # Redundant but fine
+    image="docker.io/channnuu/chandan_spark:3.5.2",
     template_spec=spec,
     get_logs=True,
     delete_on_termination=False,
