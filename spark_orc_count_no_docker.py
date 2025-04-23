@@ -69,7 +69,8 @@ spark_spec = {
         "driver": {
             "cores": 1,
             "memory": "2g",
-            "serviceAccount": "spark"
+            "serviceAccount": "spark",
+            "labels":{}
         },
         "executor": {
             "cores": 2,
