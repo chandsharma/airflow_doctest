@@ -4,6 +4,7 @@ from airflow.sensors.base import BaseSensorOperator
 from kubernetes import client, config
 from datetime import datetime
 
+# Default arguments for DAG
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
@@ -11,17 +12,18 @@ default_args = {
     "email_on_retry": False,
 }
 
-class SparkJobSensor(BaseSensorOperator):
+# Sensor to check Spark Application completion
+class SparkAppSensor(BaseSensorOperator):
     def __init__(self, namespace, app_name, **kwargs):
         super().__init__(**kwargs)
         self.namespace = namespace
         self.app_name = app_name
 
     def poke(self, context):
-        config.load_incluster_config()
-        api = client.CustomObjectsApi()
+        config.load_kube_config()
+        custom_api = client.CustomObjectsApi()
 
-        app = api.get_namespaced_custom_object(
+        app = custom_api.get_namespaced_custom_object(
             group="sparkoperator.k8s.io",
             version="v1beta2",
             namespace=self.namespace,
@@ -33,7 +35,7 @@ class SparkJobSensor(BaseSensorOperator):
         self.log.info(f"Spark Application '{self.app_name}' state: {state}")
 
         if state == "COMPLETED":
-            self.log.info("Spark Job completed successfully!")
+            self.log.info("Spark Job completed successfully.")
             return True
         elif state in ["FAILED", "UNKNOWN", "SUBMISSION_FAILED"]:
             raise Exception(f"Spark Job failed with state: {state}")
@@ -41,6 +43,7 @@ class SparkJobSensor(BaseSensorOperator):
 
 spark_app_name = "spark-orc-count"
 
+# Spark Application specification
 spark_spec = {
     "apiVersion": "sparkoperator.k8s.io/v1beta2",
     "kind": "SparkApplication",
@@ -79,30 +82,35 @@ spark_spec = {
     }
 }
 
-with DAG(
-    dag_id="spark_orc_count_no_docker",
+# Define DAG
+dag = DAG(
+    "spark_orc_count_no_docker",
     default_args=default_args,
     description="Spark job to count ORC rows without custom Docker images",
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
-) as dag:
+)
 
-    submit_spark_job = SparkKubernetesOperator(
-        task_id="submit_spark_orc_count",
-        namespace="default",
-        image="apache/spark:3.5.1-python3",
-        template_spec=spark_spec,
-        get_logs=True,
-        delete_on_termination=False
-    )
+# Submit Spark Application
+submit_spark_job = SparkKubernetesOperator(
+    task_id="submit_spark_orc_count",
+    namespace="default",
+    image="apache/spark:3.5.1-python3",
+    template_spec=spark_spec,
+    get_logs=True,
+    delete_on_termination=False,
+    dag=dag
+)
 
-    monitor_spark_job = SparkJobSensor(
-        task_id="monitor_spark_orc_count",
-        namespace="default",
-        app_name=spark_app_name,
-        poke_interval=30,
-        timeout=3600
-    )
+# Monitor Spark Application
+monitor_spark_job = SparkAppSensor(
+    task_id="monitor_spark_orc_count",
+    namespace="default",
+    app_name=spark_app_name,
+    poke_interval=30,
+    timeout=3600,
+    dag=dag
+)
 
-    submit_spark_job >> monitor_spark_job
+submit_spark_job >> monitor_spark_job
