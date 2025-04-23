@@ -4,7 +4,6 @@ from airflow.sensors.base import BaseSensorOperator
 from kubernetes import client, config
 from datetime import datetime
 
-# Default arguments for DAG
 default_args = {
     "owner": "airflow",
     "depends_on_past": False,
@@ -12,7 +11,6 @@ default_args = {
     "email_on_retry": False,
 }
 
-# Sensor to check Spark Application completion
 class SparkAppSensor(BaseSensorOperator):
     def __init__(self, namespace, app_name, **kwargs):
         super().__init__(**kwargs)
@@ -43,7 +41,6 @@ class SparkAppSensor(BaseSensorOperator):
 
 spark_app_name = "spark-orc-count"
 
-# Spark Application specification
 spark_spec = {
     "apiVersion": "sparkoperator.k8s.io/v1beta2",
     "kind": "SparkApplication",
@@ -56,8 +53,8 @@ spark_spec = {
         "mode": "cluster",
         "image": "apache/spark:3.5.1-python3",
         "imagePullPolicy": "IfNotPresent",
-        "mainApplicationFile": "wasbs://scripts@vishalsparklogs.blob.core.windows.net/spark/orc_count.py",
-        "arguments": ["wasbs://data@vishalsparklogs.blob.core.windows.net/path/to/orc/files"],
+        "mainApplicationFile": "https://vishalsparklogs.blob.core.windows.net/orc-data-container/python_script/orc_count.py",
+        "arguments": ["wasbs://orc-data-container@vishalsparklogs.blob.core.windows.net/dummy_data/parquet/"],
         "sparkVersion": "3.5.1",
         "restartPolicy": {
             "type": "OnFailure",
@@ -82,17 +79,15 @@ spark_spec = {
     }
 }
 
-# Define DAG
 dag = DAG(
     "spark_orc_count_no_docker",
     default_args=default_args,
-    description="Spark job to count ORC rows without custom Docker images",
+    description="Spark job to count rows from Parquet using external Python script",
     schedule_interval=None,
     start_date=datetime(2024, 1, 1),
     catchup=False,
 )
 
-# Submit Spark Application
 submit_spark_job = SparkKubernetesOperator(
     task_id="submit_spark_orc_count",
     namespace="default",
@@ -103,7 +98,6 @@ submit_spark_job = SparkKubernetesOperator(
     dag=dag
 )
 
-# Monitor Spark Application
 monitor_spark_job = SparkAppSensor(
     task_id="monitor_spark_orc_count",
     namespace="default",
