@@ -2,7 +2,6 @@ from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
-from pyspark.sql import SparkSession
 
 default_args = {
     "owner": "airflow",
