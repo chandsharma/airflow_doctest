@@ -1,8 +1,8 @@
 from airflow import DAG
-from airflow.providers.cncf.kubernetes.operators.spark_kubernetes import SparkKubernetesOperator
-from airflow.sensors.base import BaseSensorOperator
-from kubernetes import client, config
+from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
+from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+from pyspark.sql import SparkSession
 
 default_args = {
     "owner": "airflow",
@@ -14,18 +14,54 @@ default_args = {
 }
 
 dag = DAG(
-    "dag_count_orc_rows_spark_operator",
+    "dag_count_orc_rows_python",
     default_args=default_args,
-    description="Run Spark job using SparkKubernetesOperator to count ORC rows",
+    description="Run Spark job on AKS to count ORC rows via YAML",
     schedule_interval=None,
-    start_date=datetime(2024, 1, 1),
+    start_date=datetime(2025, 1, 1),
     catchup=False,
 )
 
-submit_spark_job = SparkKubernetesOperator(
-    task_id="submit_spark_orc_count",
+def spark_execution(**kwargs):  # fixed spelling
+    print("vishal")
+
+create_configmap = KubernetesPodOperator(
+    task_id="create_orc_script_configmap",
+    name="create-configmap-orc-script",
     namespace="default",
-    application_file="https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/spark_orc_count.yaml",
+    image="bitnami/kubectl:latest",
+    cmds=[
+        "kubectl",
+        "apply",
+        "-f",
+        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-script.yaml"
+    ],
     get_logs=True,
-    dag=dag
+    is_delete_operator_pod=True,
+    dag=dag,
 )
+
+submit_spark_job = KubernetesPodOperator(
+    task_id="submit_spark_orc_count",
+    name="submit-spark-orc-job",
+    namespace="default",
+    image="bitnami/kubectl:latest",
+    cmds=[
+        "kubectl",
+        "apply",
+        "-f",
+        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-sparkapp.yaml"
+    ],
+    get_logs=True,
+    is_delete_operator_pod=True,
+    dag=dag,
+)
+
+submit_spark_job_python = PythonOperator(
+    task_id="run_spark_step",
+    python_callable=spark_execution,
+    dag=dag  # Added dag reference
+)
+
+# DAG Flow
+create_configmap >> submit_spark_job >> submit_spark_job_python
