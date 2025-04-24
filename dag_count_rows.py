@@ -1,8 +1,7 @@
 from airflow import DAG
-from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
-from pyspark.sql import SparkSession
+import subprocess
 
 default_args = {
     "owner": "airflow",
@@ -14,60 +13,26 @@ default_args = {
 }
 
 dag = DAG(
-    "dag_count_orc_rows_python",
+    dag_id="dag_submit_spark_yaml",
     default_args=default_args,
-    description="Run Spark job on AKS to count ORC rows via YAML",
+    description="Submit Spark job on AKS using Spark Operator YAML",
     schedule_interval=None,
     start_date=datetime(2025, 1, 1),
     catchup=False,
 )
 
-def spark_execution(**kwargs):  # fixed spelling
-    print("vishal function")
-    spark = SparkSession.builder.appName("CountRows").getOrCreate()
-    input_path = "wasbs://orc-data-container@vishalsparklogs.blob.core.windows.net/dummy_data/parquet/"
-    df = spark.read.parquet(input_path)
-    print(f"🔢 Total Rows: {df.count()}")
-    
-    spark.stop()
-
-create_configmap = KubernetesPodOperator(
-    task_id="create_orc_script_configmap",
-    name="create-configmap-orc-script",
-    namespace="default",
-    image="bitnami/kubectl:latest",
-    cmds=[
-        "kubectl",
-        "apply",
-        "-f",
-        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-script.yaml"
-    ],
-    get_logs=True,
-    is_delete_operator_pod=True,
-    dag=dag,
-)
-
-submit_spark_job = KubernetesPodOperator(
-    task_id="submit_spark_orc_count",
-    name="submit-spark-orc-job",
-    namespace="default",
-    image="bitnami/kubectl:latest",
-    cmds=[
-        "kubectl",
-        "apply",
-        "-f",
-        "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-sparkapp.yaml"
-    ],
-    get_logs=True,
-    is_delete_operator_pod=True,
-    dag=dag,
-)
+# Define Python function to run kubectl apply
+def submit_spark_yaml():
+    yaml_url = "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-sparkapp.yaml"
+    command = ["kubectl", "apply", "-f", yaml_url]
+    result = subprocess.run(command, capture_output=True, text=True, check=True)
+    print("STDOUT:", result.stdout)
+    print("STDERR:", result.stderr)
 
 submit_spark_job_python = PythonOperator(
-    task_id="run_spark_step",
-    python_callable=spark_execution,
-    dag=dag  # Added dag reference
+    task_id="submit_spark_yaml_via_python",
+    python_callable=submit_spark_yaml,
+    dag=dag,
 )
 
-# DAG Flow
-create_configmap >> submit_spark_job >> submit_spark_job_python
+submit_spark_job_python
