@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.providers.cncf.kubernetes.operators.kubernetes_pod import KubernetesPodOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+from pyspark.sql import SparkSession
 
 default_args = {
     "owner": "airflow",
@@ -22,7 +23,13 @@ dag = DAG(
 )
 
 def spark_execution(**kwargs):  # fixed spelling
-    print("vishal")
+    print("vishal function")
+    spark = SparkSession.builder.appName("CountRows").getOrCreate()
+    input_path = "wasbs://orc-data-container@vishalsparklogs.blob.core.windows.net/dummy_data/parquet/"
+    df = spark.read.parquet(input_path)
+    print(f"🔢 Total Rows: {df.count()}")
+    
+    spark.stop()
 
 create_configmap = KubernetesPodOperator(
     task_id="create_orc_script_configmap",
