@@ -23,11 +23,7 @@ dag = DAG(
 
 # Define Python function to run kubectl apply
 def submit_spark_yaml():
-    yaml_url = "https://vishalsparklogs.blob.core.windows.net/orc-data-container/yaml/orc-count-sparkapp.yaml"
-    command = ["kubectl", "apply", "-f", yaml_url]
-    result = subprocess.run(command, capture_output=True, text=True, check=True)
-    print("STDOUT:", result.stdout)
-    print("STDERR:", result.stderr)
+    print("vishal")
 
 submit_spark_job_python = PythonOperator(
     task_id="submit_spark_yaml_via_python",
