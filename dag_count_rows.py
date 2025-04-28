@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import subprocess
+from pyspark.sql import SparkSession
 
 default_args = {
     "owner": "airflow",
@@ -23,7 +24,10 @@ dag = DAG(
 
 # Define Python function to run kubectl apply
 def submit_spark_yaml():
-    print("vishal")
+    spark = SparkSession.builder.appName("CountRows").getOrCreate()
+    df = spark.read.parquet("wasbs://orc-data-container@vishalsparklogs.blob.core.windows.net/dummy_data/parquet/")
+    print(f"ðŸ”¢ Total Rows: {df.count()}")
+    spark.stop()
 
 submit_spark_job_python = PythonOperator(
     task_id="submit_spark_yaml_via_python",
